@@ -16,13 +16,13 @@ const tagName = "view"
 
 func Render(src interface{}, viewName string) interface{} {
 	m := &viewMatcher{viewName}
-	opt := &options{false, []byte(viewName), m.match}
+	opt := &options{false, viewName, m.match}
 	return mapValue(reflect.ValueOf(src), opt)
 }
 
 type options struct {
 	noCache      bool
-	cacheTag     []byte
+	cacheTag     string
 	fieldMatcher func(f field) bool
 }
 
@@ -59,9 +59,14 @@ func identityMapper(v reflect.Value) interface{} {
 	return v.Interface()
 }
 
+type mapperCacheKey struct {
+	t   reflect.Type
+	tag string
+}
+
 var mapperCache struct {
 	sync.RWMutex
-	m map[reflect.Type]mapperFunc
+	m map[mapperCacheKey]mapperFunc
 }
 
 // getTypeMapper is like newTypeMapper but uses a cache to avoid repeated work if it possible.
@@ -71,8 +76,9 @@ func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
 		return newTypeMapper(t, opt)
 	}
 
+	key := mapperCacheKey{t, opt.cacheTag}
 	mapperCache.RLock()
-	f := mapperCache.m[t]
+	f := mapperCache.m[key]
 	mapperCache.RUnlock()
 	if f != nil {
 		return f
@@ -84,11 +90,11 @@ func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
 	// func is only used for recursive types.
 	mapperCache.Lock()
 	if mapperCache.m == nil {
-		mapperCache.m = make(map[reflect.Type]mapperFunc)
+		mapperCache.m = make(map[mapperCacheKey]mapperFunc)
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
-	mapperCache.m[t] = func(v reflect.Value) interface{} {
+	mapperCache.m[key] = func(v reflect.Value) interface{} {
 		wg.Wait()
 		return f(v)
 	}
@@ -100,7 +106,7 @@ func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
 	wg.Done()
 
 	mapperCache.Lock()
-	mapperCache.m[t] = f
+	mapperCache.m[key] = f
 	mapperCache.Unlock()
 	return f
 }

@@ -1,1 +1,1 @@
-# Struct View [![GoDoc](https://godoc.org/github.com/sevlyar/go-struct-view?status.png)](https://godoc.org/github.com/sevlyar/go-struct-view) [![Build Status](https://travis-ci.org/sevlyar/go-struct-view.png?branch=master)](https://travis-ci.org/sevlyar/go-struct-view) 
+# Struct View [![GoDoc](https://godoc.org/github.com/sevlyar/go-struct-view?status.png)](https://godoc.org/github.com/sevlyar/go-struct-view) [![Build Status](https://travis-ci.org/sevlyar/go-struct-view.svg?branch=master)](https://travis-ci.org/sevlyar/go-struct-view)

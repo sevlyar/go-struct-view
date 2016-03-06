@@ -31,7 +31,7 @@ type viewMatcher struct {
 }
 
 func (m *viewMatcher) match(f field) bool {
-	return strings.Index(f.tag, m.viewName) >= 0
+	return f.isMatchView(m.viewName)
 }
 
 func mapValue(v reflect.Value, opt *options) interface{} {
@@ -331,13 +331,29 @@ func getTypeFields(t reflect.Type) []field {
 func buildTypeFields(t reflect.Type) (fields []field) {
 	for i := 0; i < t.NumField(); i++ {
 		sf := t.Field(i)
-		fields = append(fields, field{sf.Name, sf.Index[0], sf.Tag.Get(tagName)})
+		fields = append(fields, newField(sf))
 	}
 	return
+}
+
+func newField(sf reflect.StructField) field {
+	tag := sf.Tag.Get(tagName)
+	views := strings.Split(tag, ",")
+	return field{sf.Name, sf.Index[0], tag, views}
 }
 
 type field struct {
 	name  string
 	index int
 	tag   string
+	views []string
+}
+
+func (f *field) isMatchView(viewName string) bool {
+	for _, v := range f.views {
+		if viewName == v {
+			return true
+		}
+	}
+	return false
 }

@@ -132,6 +132,34 @@ func TestRender(test *testing.T) {
 		So(v, ShouldResemble, map[string]interface{}{"I": map[string]interface{}{"S": "test"}})
 	})
 
+	Convey("It converts slices correctly", test, func() {
+		var src = []*Product{
+			{3, "T-shirt", "123-456-7890"},
+			{5, "Shoes", "789-000-1111"},
+		}
+		v, err := Render(src, "support")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, []interface{}{
+			map[string]interface{}{"Name": "T-shirt", "Code": "123-456-7890"},
+			map[string]interface{}{"Name": "Shoes", "Code": "789-000-1111"},
+		})
+	})
+
+	Convey("It converts recursive types correctly", test, func() {
+		type list struct {
+			Next  *list  `view:"admin"`
+			Value string `view:"admin"`
+			Skip  string
+		}
+		l := &list{&list{nil, "a", "b"}, "c", "d"}
+		v, err := Render(l, "admin")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, map[string]interface{}{
+			"Next":  map[string]interface{}{"Next": nil, "Value": "a"},
+			"Value": "c",
+		})
+	})
+
 	Convey("Name conversion", test, func() {
 
 	})

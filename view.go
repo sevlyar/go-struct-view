@@ -6,7 +6,8 @@ import (
 	"sync"
 )
 
-// TODO: able to pass field name converter
+// TODO: field name converter
+// TODO: add force flag (split caching)
 
 const tagName = "view"
 

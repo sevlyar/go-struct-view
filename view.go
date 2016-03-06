@@ -55,16 +55,54 @@ func invalidValueMapper(v reflect.Value) interface{} {
 	return nil
 }
 
-func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
-	// TODO: cache mappers
-	if opt.noCache {
-		return newTypeMapper(t, opt)
-	}
-	return newTypeMapper(t, opt)
-}
-
 func identityMapper(v reflect.Value) interface{} {
 	return v.Interface()
+}
+
+var mapperCache struct {
+	sync.RWMutex
+	m map[reflect.Type]mapperFunc
+}
+
+// getTypeMapper is like newTypeMapper but uses a cache to avoid repeated work if it possible.
+func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
+	if opt.noCache {
+		// TODO: check processing of recursive structs
+		return newTypeMapper(t, opt)
+	}
+
+	mapperCache.RLock()
+	f := mapperCache.m[t]
+	mapperCache.RUnlock()
+	if f != nil {
+		return f
+	}
+
+	// To deal with recursive types, populate the map with an
+	// indirect func before we build it. This type waits on the
+	// real func (f) to be ready and then calls it.  This indirect
+	// func is only used for recursive types.
+	mapperCache.Lock()
+	if mapperCache.m == nil {
+		mapperCache.m = make(map[reflect.Type]mapperFunc)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	mapperCache.m[t] = func(v reflect.Value) interface{} {
+		wg.Wait()
+		return f(v)
+	}
+	mapperCache.Unlock()
+
+	// Compute fields without lock.
+	// Might duplicate effort but won't hold other computations back.
+	f = newTypeMapper(t, opt)
+	wg.Done()
+
+	mapperCache.Lock()
+	mapperCache.m[t] = f
+	mapperCache.Unlock()
+	return f
 }
 
 func newTypeMapper(t reflect.Type, opt *options) mapperFunc {

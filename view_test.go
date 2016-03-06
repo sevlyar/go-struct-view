@@ -91,6 +91,17 @@ func TestRender(test *testing.T) {
 		So(v, ShouldBeNil)
 	})
 
+	Convey("It converts maps correctly", test, func() {
+		var src = map[int]*Product{
+			1: {3, "T-shirt", "123-456-7890"},
+		}
+		v, err := Render(src, "support")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, map[int]interface{}{
+			1: map[string]interface{}{"Name": "T-shirt", "Code": "123-456-7890"},
+		})
+	})
+
 	Convey("Name convertation", test, func() {
 
 	})

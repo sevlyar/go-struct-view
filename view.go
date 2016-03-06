@@ -43,7 +43,7 @@ func (m *viewMatcher) match(f field) bool {
 func mapInterface(src interface{}, opt *options) (i interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
+			if e, ok := r.(*UnsupportedTypeError); ok {
 				err = e
 				return
 			}
@@ -226,8 +226,8 @@ type arrayMapper struct {
 }
 
 var (
-	voidInterfaceValue interface{}
-	voidInterfaceType  = reflect.TypeOf(voidInterfaceValue)
+	voidInterfaceValuePtr = new(interface{})
+	voidInterfaceType     = reflect.TypeOf(voidInterfaceValuePtr).Elem()
 )
 
 func (am *arrayMapper) mapValue(v reflect.Value) interface{} {
@@ -240,7 +240,7 @@ func (am *arrayMapper) mapValue(v reflect.Value) interface{} {
 }
 
 func newMapMapper(t reflect.Type, opt *options) mapperFunc {
-	fn := getTypeMapper(t, opt)
+	fn := getTypeMapper(t.Elem(), opt)
 	if fn == nil {
 		return nil
 	}

@@ -6,18 +6,24 @@ import (
 	"sync"
 )
 
-// TODO: make encoders, cache and precompile: https://golang.org/src/encoding/json/encode.go
-// TODO: make errors handling (invalidTypeEncoder)
-// TODO: use json tags (and so on)
-// TODO: use right tags (skip struct slashing if no one tag is setted)
 // TODO: able to pass field name converter
 
 const tagName = "view"
 
-func Render(src interface{}, viewName string) interface{} {
+// An UnsupportedTypeError is returned by Render when attempting
+// to process an unsupported value type.
+type UnsupportedTypeError struct {
+	Type reflect.Type
+}
+
+func (e *UnsupportedTypeError) Error() string {
+	return "struct-view: unsupported type: " + e.Type.String()
+}
+
+func Render(src interface{}, viewName string) (interface{}, error) {
 	m := &viewMatcher{viewName}
 	opt := &options{false, viewName, m.match}
-	return mapValue(reflect.ValueOf(src), opt)
+	return mapInterface(src, opt)
 }
 
 type options struct {
@@ -32,6 +38,20 @@ type viewMatcher struct {
 
 func (m *viewMatcher) match(f field) bool {
 	return f.isMatchView(m.viewName)
+}
+
+func mapInterface(src interface{}, opt *options) (i interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+				return
+			}
+			panic(r)
+		}
+	}()
+	i = mapValue(reflect.ValueOf(src), opt)
+	return
 }
 
 func mapValue(v reflect.Value, opt *options) interface{} {
@@ -133,7 +153,7 @@ func newTypeMapper(t reflect.Type, opt *options) mapperFunc {
 }
 
 func unsupportedTypeMapper(v reflect.Value) interface{} {
-	panic("Not implemented")
+	panic(&UnsupportedTypeError{v.Type()})
 }
 
 func newPtrMapper(t reflect.Type, opt *options) mapperFunc {

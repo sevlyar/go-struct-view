@@ -33,12 +33,16 @@ func TestRender(test *testing.T) {
 
 	Convey("It omits unmatched fields and converts struct to map if at least one field matched", test, func() {
 		Convey("Field matches by tag", func() {
-			So(Render(u, "admin"), ShouldResemble, map[string]interface{}{
+			v, err := Render(u, "admin")
+			So(err, ShouldBeNil)
+			So(v, ShouldResemble, map[string]interface{}{
 				"Id": uint(7),
 			})
 		})
 		Convey("Field can included in many views", func() {
-			So(Render(u, "support"), ShouldResemble, map[string]interface{}{
+			v, err := Render(u, "support")
+			So(err, ShouldBeNil)
+			So(v, ShouldResemble, map[string]interface{}{
 				"Id":   uint(7),
 				"Name": "Jon Doe",
 			})
@@ -46,11 +50,15 @@ func TestRender(test *testing.T) {
 	})
 
 	Convey("It does not omit fields if no one field matched", test, func() {
-		So(Render(u, "system"), ShouldResemble, u)
+		v, err := Render(u, "system")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, u)
 	})
 
 	Convey("It does not convert types and does not map data if it is possible", test, func() {
-		So(Render(u, "system"), ShouldEqual, u)
+		v, err := Render(u, "system")
+		So(err, ShouldBeNil)
+		So(v, ShouldEqual, u)
 	})
 
 	Convey("It process the complex structures of data", test, func() {
@@ -60,13 +68,27 @@ func TestRender(test *testing.T) {
 				{5, "Shoes", "789-000-1111"},
 			},
 		}
-		So(Render(a, "admin"), ShouldResemble, map[string]interface{}{
+		v, err := Render(a, "admin")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, map[string]interface{}{
 			"Products": []Product{
 				{Id: uint(3), Name: "T-shirt", Code: "123-456-7890"},
 				{Id: uint(5), Name: "Shoes", Code: "789-000-1111"},
 			},
 			"User": map[string]interface{}{"Id": uint(7)},
 		})
+	})
+
+	Convey("It returns UnsupportedTypeError when attempting to process an unsupported value type", test, func() {
+		var src struct {
+			Field struct {
+				Channel chan interface{}
+			}
+		}
+		v, err := Render(src, "admin")
+		So(err, ShouldNotBeNil)
+		So(err, ShouldHaveSameTypeAs, &UnsupportedTypeError{})
+		So(v, ShouldBeNil)
 	})
 
 	Convey("Name convertation", test, func() {

@@ -260,7 +260,6 @@ func buildTypeFields(t reflect.Type) (fields []field) {
 	return
 }
 
-// tags: view name or '*', field name, stop mapping?
 type field struct {
 	name  string
 	index int

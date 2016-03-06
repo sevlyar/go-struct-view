@@ -73,3 +73,16 @@ func TestRender(test *testing.T) {
 
 	})
 }
+
+func BenchmarkRender(bench *testing.B) {
+	a := &Activity{
+		&User{7, "Jon Doe", "secret", "12345"},
+		[]Product{
+			{3, "T-shirt", "123-456-7890"},
+			{5, "Shoes", "789-000-1111"},
+		},
+	}
+	for i := 0; i < bench.N; i++ {
+		Render(a, "admin")
+	}
+}

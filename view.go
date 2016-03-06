@@ -189,7 +189,7 @@ func (im *interfaceMapper) mapValue(v reflect.Value) interface{} {
 	if v.IsNil() {
 		return nil
 	}
-	return mapValue(v, im.opt)
+	return mapValue(v.Elem(), im.opt)
 }
 
 func newSliceMapper(t reflect.Type, opt *options) mapperFunc {

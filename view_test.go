@@ -102,7 +102,37 @@ func TestRender(test *testing.T) {
 		})
 	})
 
-	Convey("Name convertation", test, func() {
+	Convey("It converts arrays correctly", test, func() {
+		var src = [2]*Product{
+			{3, "T-shirt", "123-456-7890"},
+			{5, "Shoes", "789-000-1111"},
+		}
+		v, err := Render(src, "support")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, []interface{}{
+			map[string]interface{}{"Name": "T-shirt", "Code": "123-456-7890"},
+			map[string]interface{}{"Name": "Shoes", "Code": "789-000-1111"},
+		})
+	})
+
+	Convey("It converts interfaces correctly", test, func() {
+		var src = struct {
+			I interface{}
+		}{u}
+		v, err := Render(src, "admin")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, map[string]interface{}{"I": map[string]interface{}{"Id": uint(7)}})
+
+		src.I = struct {
+			S string `view:"admin"`
+			K string
+		}{"test", "key"}
+		v, err = Render(src, "admin")
+		So(err, ShouldBeNil)
+		So(v, ShouldResemble, map[string]interface{}{"I": map[string]interface{}{"S": "test"}})
+	})
+
+	Convey("Name conversion", test, func() {
 
 	})
 }

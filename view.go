@@ -3,6 +3,7 @@ package view
 import (
 	"reflect"
 	"strings"
+	"sync"
 )
 
 // TODO: make encoders, cache and precompile: https://golang.org/src/encoding/json/encode.go
@@ -13,15 +14,24 @@ import (
 
 const tagName = "view"
 
-func Render(src interface{}, view string) interface{} {
-	return mapValue(reflect.ValueOf(src), &options{func(_, fieldTag string) bool {
-		return strings.Index(fieldTag, view) >= 0
-	}})
+func Render(src interface{}, viewName string) interface{} {
+	m := &viewMatcher{viewName}
+	opt := &options{false, []byte(viewName), m.match}
+	return mapValue(reflect.ValueOf(src), opt)
 }
 
 type options struct {
-	// how to cache this case?
-	fieldMatcher func(fieldName, fieldTag string) bool
+	noCache      bool
+	cacheTag     []byte
+	fieldMatcher func(f field) bool
+}
+
+type viewMatcher struct {
+	viewName string
+}
+
+func (m *viewMatcher) match(f field) bool {
+	return strings.Index(f.tag, m.viewName) >= 0
 }
 
 func mapValue(v reflect.Value, opt *options) interface{} {
@@ -47,6 +57,9 @@ func invalidValueMapper(v reflect.Value) interface{} {
 
 func getTypeMapper(t reflect.Type, opt *options) mapperFunc {
 	// TODO: cache mappers
+	if opt.noCache {
+		return newTypeMapper(t, opt)
+	}
 	return newTypeMapper(t, opt)
 }
 
@@ -188,7 +201,7 @@ func (mm *mapMapper) mapValue(v reflect.Value) interface{} {
 // структура не преобразуется если не совпало ни одно поле (или совпали все поля) и
 // нет необходимости преобразовывать какое-либо поле
 func newStructMapper(t reflect.Type, opt *options) mapperFunc {
-	fields := buildTypeFields(t)
+	fields := getTypeFields(t)
 	fieldMappers := make([]mapperFunc, len(fields))
 	canBeIdent := true
 
@@ -210,7 +223,7 @@ func newStructMapper(t reflect.Type, opt *options) mapperFunc {
 		}
 		fieldMappers[i] = fn
 
-		if opt.fieldMatcher(f.name, f.tag) {
+		if opt.fieldMatcher(f) {
 			matchedFields = append(matchedFields, f)
 			matchedMappers = append(matchedMappers, fn)
 		}
@@ -250,9 +263,34 @@ func (sm *structMapper) mapValue(v reflect.Value) interface{} {
 	return result
 }
 
-// checks first condition of struct identity: no one field matched
+var fieldCache struct {
+	sync.RWMutex
+	m map[reflect.Type][]field
+}
+
+// getTypeFields is like buildTypeFields but uses a cache to avoid repeated work.
+func getTypeFields(t reflect.Type) []field {
+	fieldCache.RLock()
+	f, exists := fieldCache.m[t]
+	fieldCache.RUnlock()
+	if exists {
+		return f
+	}
+
+	// Compute fields without lock.
+	// Might duplicate effort but won't hold other computations back.
+	f = buildTypeFields(t)
+
+	fieldCache.Lock()
+	if fieldCache.m == nil {
+		fieldCache.m = make(map[reflect.Type][]field)
+	}
+	fieldCache.m[t] = f
+	fieldCache.Unlock()
+	return f
+}
+
 func buildTypeFields(t reflect.Type) (fields []field) {
-	// TODO: cache
 	for i := 0; i < t.NumField(); i++ {
 		sf := t.Field(i)
 		fields = append(fields, field{sf.Name, sf.Index[0], sf.Tag.Get(tagName)})
